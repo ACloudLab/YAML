@@ -1,0 +1,39 @@
+#Appel des parametres du fichier pipeline
+parameters:
+  - name: depLocation
+    type: string
+    default: ""
+  - name: azureServiceConnection
+    type: string
+    default: ""
+  - name: depEnv
+    type: string
+    default: ""
+
+#Download de de l'artifact crée dans le fichier pipeline (les memes artifacts serontréutilisé pour chaque environement)
+jobs:
+  - deployment: Stage_${{ parameters.depEnv }}
+    displayName: Stage-${{ parameters.depEnv }}
+    environment: Stage-${{ parameters.depEnv }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: none
+            - task: DownloadBuildArtifacts@1
+              inputs:
+                buildType: "current"
+                downloadType: "single"
+                downloadPath: "$(System.ArtifactsDirectory)"
+#Deploiement du fichier bicep contenant les modules en lui passant les variables requises
+            - task: AzureCLI@2
+              displayName: "Deploy template"
+              inputs:
+                azureSubscription: ${{ parameters.azureServiceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  az deployment sub create --location="${{ parameters.depLocation }}" \
+                  --template-file '$(System.ArtifactsDirectory)/finishedTemplate/IAC/FichierBicepContenantModules.bicep' \
+                  --parameters depEnv='${{ parameters.depEnv }}'
+                       

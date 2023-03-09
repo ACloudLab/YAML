@@ -1,0 +1,49 @@
+name: Pipeline
+
+variables:
+  - name: vmImageName
+    value: "ubuntu-latest"
+  - name: location
+    value: "canadacentral"
+
+pool:
+  vmImage: $(vmImageName)
+
+stages:
+  - stage: Build
+    jobs:
+      - job: Artifacts
+        displayName: Gather the latest Artifacts
+        steps:
+          - task: CopyFiles@2
+            displayName: "Copy bicep and json"
+            inputs:
+              Contents: |
+                **/*.json
+                **/*.bicep
+              targetFolder: $(Build.ArtifactStagingDirectory)
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish artifact in pipeline"
+            inputs:
+              PathtoPublish: "$(Build.ArtifactStagingDirectory)"
+              ArtifactName: "finishedTemplate"
+              publishLocation: "Container"
+
+
+  - stage: Deploy_SBX
+    displayName: Deployment of SBX
+    variables:
+      - name: env
+        value: "sbx"
+      - name: System.Debug
+        value: 'true' #fordebug
+      - group: SBX-SharedVar
+
+    jobs:
+      - template: "Deploy.yml"
+        parameters:
+          depEnv: ${{ variables.env }}
+          depLocation: ${{ variables.location }}
+          azureServiceConnection: sbx-serviceconnection
+
+
